@@ -1,0 +1,458 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Wed Nov 27 22:29:44 2024
+
+@author: j_171
+"""
+
+import pandas as pd
+import matplotlib.pyplot as plt
+from matplotlib import rc
+import seaborn as sns
+import mplfinance as mpf
+import numpy as np
+import matplotlib.dates as mdates
+from datetime import datetime
+from finlab_crypto import crawler
+from matplotlib.dates import DateFormatter, MonthLocator, YearLocator
+
+# 載入資料
+cgi = pd.read_csv('Crypto_Fear_&Greed_Index.csv', encoding='utf-8')
+
+BTC = crawler.get_all_binance('BTCUSDT', '1d',)
+ETH = crawler.get_all_binance('ETHUSDT', '1d',)
+SOL = crawler.get_all_binance('SOLUSDT', '1d',)
+BNB = crawler.get_all_binance('BNBUSDT', '1d',)
+XRP = crawler.get_all_binance('XRPUSDT', '1d',)
+
+
+'''#開盤與收盤關係  檢查有沒有異常值
+#x軸為開盤、y軸為收盤  
+
+# Relationship between Open Price and Adjusted Close Price.
+plt.scatter(BTC ['open'],BTC ["close"], color="springgreen")
+plt.xlabel('open')
+plt.ylabel("close")
+plt.title ("open vs. Close Prices")
+plt.grid()#網格線
+plt.show()'''
+
+
+
+df = BTC
+df = df.reset_index()
+
+# 預處理函數
+def preprocess_df(df, name):
+    df = df.reset_index()  # 重設索引
+    df['timestamp'] = pd.to_datetime(df['timestamp'], errors='coerce')  # 轉為 datetime 格式
+    df = df.dropna(subset=['timestamp'])  # 移除無效的 timestamp
+    df['timestamp'] = df['timestamp'].dt.strftime('%Y-%m-%d')  # 格式化為 YYYY-MM-DD
+    df = df[['timestamp', 'close']].rename(columns={'close': f'{name}_close'})  # 保留 timestamp 和 close 欄位
+    return df
+
+BTC = preprocess_df(BTC, 'BTC')
+ETH = preprocess_df(ETH, 'ETH')
+SOL = preprocess_df(SOL, 'SOL')
+BNB = preprocess_df(BNB, 'BNB')
+XRP = preprocess_df(XRP, 'XRP')
+
+# 預處理 Fear & Greed Index 資料
+cgi['timestamp'] = pd.to_datetime(cgi['timestamp'], errors='coerce')
+cgi = cgi.dropna(subset=['timestamp'])
+cgi['timestamp'] = cgi['timestamp'].dt.strftime('%Y-%m-%d')
+cgi = cgi[['timestamp', 'value']].rename(columns={'value': 'Fear_Greed_Index'})
+
+# 合併資料，基於 BTC 的 timestamp
+merged_df = BTC.copy()
+merged_df = pd.merge(merged_df, ETH, on='timestamp', how='left')
+merged_df = pd.merge(merged_df, SOL, on='timestamp', how='left')
+merged_df = pd.merge(merged_df, BNB, on='timestamp', how='left')
+merged_df = pd.merge(merged_df, XRP, on='timestamp', how='left')
+merged_df = pd.merge(merged_df, cgi, on='timestamp', how='left')
+
+# 顯示合併後的資料
+print(merged_df.head())
+
+# 確認資料範圍
+print("合併後資料時間範圍：", merged_df['timestamp'].min(), "至", merged_df['timestamp'].max())
+
+'''
+merged_df現在依照最早時間開始有資料  因各幣發行時間及CGI抓到的時間不一樣 
+所以都用Nan代替 看要時間區隔再擷取
+'''
+
+# 確保 'timestamp' 欄位為索引，若未設置索引，請執行以下代碼：
+merged_df['timestamp'] = pd.to_datetime(merged_df['timestamp'])
+merged_df.set_index('timestamp', inplace=True)
+
+# 1. BTC 價格趨勢圖
+plt.figure(figsize=(14, 8))
+plt.plot(merged_df.index, merged_df['BTC_close'], label='BTC', color='red')
+plt.title('BTC Price Trend', fontsize=16)
+plt.xlabel('Date', fontsize=12)
+plt.ylabel('Price (USD)', fontsize=12)
+plt.grid(True, which='both', linestyle='--', linewidth=0.5)
+plt.legend(fontsize=10)
+plt.tight_layout()
+plt.show()
+
+# 2.ETH 價格趨勢圖
+plt.figure(figsize=(14, 8))
+plt.plot(merged_df.index, merged_df['ETH_close'], label='ETH', color='orange')
+plt.title('ETH Price Trend', fontsize=16)
+plt.xlabel('Date', fontsize=12)
+plt.ylabel('Price (USD)', fontsize=12)
+plt.grid(True, which='both', linestyle='--', linewidth=0.5)
+plt.legend(fontsize=10)
+plt.tight_layout()
+plt.show()
+
+# 3.SOL 價格趨勢圖
+plt.figure(figsize=(14, 8))
+plt.plot(merged_df.index, merged_df['SOL_close'], label='SOL', color='green')
+plt.title('SOL Price Trend', fontsize=16)
+plt.xlabel('Date', fontsize=12)
+plt.ylabel('Price (USD)', fontsize=12)
+plt.grid(True, which='both', linestyle='--', linewidth=0.5)
+plt.legend(fontsize=10)
+plt.tight_layout()
+plt.show()
+
+
+# 4.BNB 價格趨勢圖
+plt.figure(figsize=(14, 8))
+plt.plot(merged_df.index, merged_df['BNB_close'], label='BNB', color='blue')
+plt.title('BNB Price Trend', fontsize=16)
+plt.xlabel('Date', fontsize=12)
+plt.ylabel('Price (USD)', fontsize=12)
+plt.grid(True, which='both', linestyle='--', linewidth=0.5)
+plt.legend(fontsize=10)
+plt.tight_layout()
+plt.show()
+
+
+# 5.XRP 價格趨勢圖
+plt.figure(figsize=(14, 8))
+plt.plot(merged_df.index, merged_df['XRP_close'], label='XRP', color='purple')
+plt.title('XRP Price Trend', fontsize=16)
+plt.xlabel('Date', fontsize=12)
+plt.ylabel('Price (USD)', fontsize=12)
+plt.grid(True, which='both', linestyle='--', linewidth=0.5)
+plt.legend(fontsize=10)
+plt.tight_layout()
+plt.show()
+
+
+
+# 2. ETH, SOL, BNB, XRP 的價格趨勢圖
+plt.figure(figsize=(14, 8))
+for column, color in zip(['SOL_close', 'BNB_close', 'XRP_close'], 
+                         ['green', 'red', 'purple']):
+    plt.plot(merged_df.index, merged_df[column], label=column.split('_')[0], color=color)
+
+plt.title('SOL, BNB, and XRP Price Trends', fontsize=16)
+plt.xlabel('Date', fontsize=12)
+plt.ylabel('Price (USD)', fontsize=12)
+plt.grid(True, which='both', linestyle='--', linewidth=0.5)
+plt.legend(title='Cryptocurrency', fontsize=10)
+plt.tight_layout()
+plt.show()
+
+
+
+#---------------------------------
+# 假設 merged_df 中包含五個幣值的收盤價，且 timestamp 是索引
+timestamps = merged_df.index  # 使用索引作為時間軸
+BTC_close = merged_df['BTC_close']
+ETH_close = merged_df['ETH_close']
+SOL_close = merged_df['SOL_close']
+BNB_close = merged_df['BNB_close']
+XRP_close = merged_df['XRP_close']
+Fear_Greed_Index = merged_df['Fear_Greed_Index']
+
+# 創建圖表
+fig, ax1 = plt.subplots(figsize=(22, 6))
+
+# 背景：恐懼與貪婪指數柱狀圖
+ax1.bar(timestamps, Fear_Greed_Index, color='skyblue', alpha=0.5, label='Fear & Greed Index', width=1)
+ax1.axhline(y=20, color='gray', linestyle='--', linewidth=1, label='Fear/Greed Index = 20')
+ax1.axhline(y=80, color='gray', linestyle='--', linewidth=1, label='Fear/Greed Index = 80')
+
+# 畫 BTC 收盤價
+ax1.plot(timestamps, BTC_close, color='red', label='BTC_close', linewidth=2)
+ax1.set_xlabel('Year')
+ax1.set_ylabel('BTC Close Price (USD)', color='red')
+ax1.tick_params(axis='y', labelcolor='red')
+
+# 創建第二個 Y 軸，畫 ETH 收盤價
+ax2 = ax1.twinx()
+ax2.plot(timestamps, ETH_close, color='orange', label='ETH_close', linewidth=2)
+ax2.set_ylabel('ETH Close Price (USD)', color='orange')
+ax2.tick_params(axis='y', labelcolor='orange')
+
+# 創建第三個 Y 軸，畫 SOL 收盤價
+ax3 = ax1.twinx()
+ax3.spines['right'].set_position(('outward', 60))  # 創建一個新的 Y 軸，並向外移動
+ax3.plot(timestamps, SOL_close, color='green', label='SOL_close', linewidth=2)
+ax3.set_ylabel('SOL Close Price (USD)', color='green')
+ax3.tick_params(axis='y', labelcolor='green')
+
+# 創建第四個 Y 軸，畫 BNB 收盤價
+ax4 = ax1.twinx()
+ax4.spines['right'].set_position(('outward', 120))  # 再次向外移動
+ax4.plot(timestamps, BNB_close, color='blue', label='BNB_closee', linewidth=2)
+ax4.set_ylabel('BNB Close Price (USD)', color='blue')
+ax4.tick_params(axis='y', labelcolor='blue')
+
+# 創建第五個 Y 軸，畫 XRP 收盤價
+ax5 = ax1.twinx()
+ax5.spines['right'].set_position(('outward', 180))  # 再次向外移動
+ax5.plot(timestamps, XRP_close, color='purple', label='XRP_close', linewidth=2)
+ax5.set_ylabel('XRP Close Price (USD)', color='purple')
+ax5.tick_params(axis='y', labelcolor='purple')
+
+# 設定標籤與標題
+ax1.set_xlabel('Year')
+ax1.set_ylabel('Fear & Greed Index', color='black')
+ax1.tick_params(axis='y', labelcolor='black')
+ax1.xaxis.set_major_locator(mdates.MonthLocator(interval=6))  # 每半年顯示一次
+ax1.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m'))
+plt.title('Cryptocurrencies Close Prices and Fear & Greed Index')
+
+# 添加圖例
+fig.legend(loc='upper left', bbox_to_anchor=(1.02, 1), fontsize=10)
+
+# 美化佈局
+fig.tight_layout()
+plt.show()
+
+#------------------------------------
+# 創建兩個子圖，第一張子圖高度為第二張的兩倍，且共用 X 軸
+fig = plt.figure(figsize=(22, 9))
+gs = fig.add_gridspec(3, 1)  # 將整個圖形分為 3 等分
+ax1 = fig.add_subplot(gs[:2, 0])  # 前 2 等分作為子圖 1
+ax_fgi = fig.add_subplot(gs[2, 0], sharex=ax1)  # 最後 1 等分作為子圖 2，且共用 X 軸
+
+# 子圖 1: 幣種的收盤價
+# BTC
+ax1.plot(timestamps, BTC_close, color='red', label='BTC_close', linewidth=2)
+ax1.set_ylabel('BTC Close Price (USD)', color='red')
+ax1.tick_params(axis='y', labelcolor='red')
+
+# ETH
+ax2 = ax1.twinx()
+ax2.plot(timestamps, ETH_close, color='orange', label='ETH_close', linewidth=2)
+ax2.set_ylabel('ETH Close Price (USD)', color='orange')
+ax2.tick_params(axis='y', labelcolor='orange')
+
+# SOL
+ax3 = ax1.twinx()
+ax3.spines['right'].set_position(('outward', 60))
+ax3.plot(timestamps, SOL_close, color='green', label='SOL_close', linewidth=2)
+ax3.set_ylabel('SOL Close Price (USD)', color='green')
+ax3.tick_params(axis='y', labelcolor='green')
+
+# BNB
+ax4 = ax1.twinx()
+ax4.spines['right'].set_position(('outward', 120))
+ax4.plot(timestamps, BNB_close, color='blue', label='BNB_close', linewidth=2)
+ax4.set_ylabel('BNB Close Price (USD)', color='blue')
+ax4.tick_params(axis='y', labelcolor='blue')
+
+# XRP
+ax5 = ax1.twinx()
+ax5.spines['right'].set_position(('outward', 180))
+ax5.plot(timestamps, XRP_close, color='purple', label='XRP_close', linewidth=2)
+ax5.set_ylabel('XRP Close Price (USD)', color='purple')
+ax5.tick_params(axis='y', labelcolor='purple')
+
+# 設定子圖 1 的標題
+ax1.set_title('Cryptocurrencies Close Prices')
+
+# 子圖 2: 恐懼與貪婪指數
+ax_fgi.bar(timestamps, Fear_Greed_Index, color='skyblue', alpha=0.5, label='Fear & Greed Index', width=1)
+ax_fgi.axhline(y=20, color='gray', linestyle='--', linewidth=1, label='Fear/Greed Index = 20')
+ax_fgi.axhline(y=80, color='gray', linestyle='--', linewidth=1, label='Fear/Greed Index = 80')
+ax_fgi.set_ylim(0, 100)  # 確保 Y 軸範圍正確
+ax_fgi.set_ylabel('Fear & Greed Index', color='black')
+ax_fgi.tick_params(axis='y', labelcolor='black')
+ax_fgi.set_title('Fear & Greed Index')
+
+# 共用 X 軸的格式設置
+ax1.xaxis.set_major_locator(mdates.MonthLocator(interval=6))  # 每半年顯示一次
+ax1.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m'))
+ax_fgi.xaxis.set_major_locator(mdates.MonthLocator(interval=6))
+ax_fgi.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m'))
+
+# 只顯示最後一個子圖的 X 軸標籤，隱藏子圖 1 的 X 軸標籤
+plt.setp(ax1.get_xticklabels(), visible=False)
+
+# 美化佈局
+fig.tight_layout()
+plt.show()
+
+
+
+#---------------------------------
+# 創建兩個子圖，第一張子圖高度為第二張的兩倍，且共用 X 軸
+fig = plt.figure(figsize=(22, 9))
+gs = fig.add_gridspec(3, 1)  # 將整個圖形分為 3 等分
+ax1 = fig.add_subplot(gs[:2, 0])  # 前 2 等分作為子圖 1
+ax_fgi = fig.add_subplot(gs[2, 0], sharex=ax1)  # 最後 1 等分作為子圖 2，且共用 X 軸
+
+# 子圖 1: 幣種的收盤價
+# BTC
+ax1.plot(timestamps, BTC_close, color='red', label='BTC_close', linewidth=2)
+ax1.set_ylabel('BTC Close Price (USD)', color='red')
+ax1.tick_params(axis='y', labelcolor='red')
+
+# 設定子圖 1 的標題
+ax1.set_title('Cryptocurrencies Close Prices')
+
+# 子圖 2: 恐懼與貪婪指數
+ax_fgi.bar(timestamps, Fear_Greed_Index, color='skyblue', alpha=0.5, label='Fear & Greed Index', width=1)
+ax_fgi.axhline(y=20, color='gray', linestyle='--', linewidth=1, label='Fear/Greed Index = 20')
+ax_fgi.axhline(y=80, color='gray', linestyle='--', linewidth=1, label='Fear/Greed Index = 80')
+ax_fgi.set_ylim(0, 100)  # 確保 Y 軸範圍正確
+ax_fgi.set_ylabel('Fear & Greed Index', color='black')
+ax_fgi.tick_params(axis='y', labelcolor='black')
+ax_fgi.set_title('Fear & Greed Index')
+
+# 共用 X 軸的格式設置
+ax1.xaxis.set_major_locator(mdates.MonthLocator(interval=6))  # 每半年顯示一次
+ax1.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m'))
+ax_fgi.xaxis.set_major_locator(mdates.MonthLocator(interval=6))
+ax_fgi.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m'))
+
+# 只顯示最後一個子圖的 X 軸標籤，隱藏子圖 1 的 X 軸標籤
+plt.setp(ax1.get_xticklabels(), visible=False)
+
+# 美化佈局
+fig.tight_layout()
+plt.show()
+
+
+
+#-----------------------牛市分
+
+# 篩選數據範圍
+bull_market_1 = merged_df.loc['2020-03':'2021-12']
+# 提取篩選後的數據
+timestamps = bull_market_1.index
+BTC_close = bull_market_1['BTC_close']
+Fear_Greed_Index = bull_market_1['Fear_Greed_Index']
+
+# 繪製圖表
+fig = plt.figure(figsize=(18, 9))
+gs = fig.add_gridspec(3, 1)  # 將整個圖形分為 3 等分
+ax1 = fig.add_subplot(gs[:2, 0])  # 前 2 等分作為子圖 1
+ax_fgi = fig.add_subplot(gs[2, 0], sharex=ax1)  # 最後 1 等分作為子圖 2，且共用 X 軸
+
+#子圖 1: 幣種的收盤價
+ax1.plot(timestamps, BTC_close, color='red', label='BTC', linewidth=2)
+ax1.set_ylabel('Close Prices (USD)')
+ax1.set_title('Cryptocurrency Close Prices')
+ax1.legend(loc='upper left', fontsize=10)
+
+# 子圖 2: 恐懼與貪婪指數
+ax_fgi.bar(timestamps, Fear_Greed_Index, color='skyblue', alpha=0.5, label='Fear & Greed Index', width=1)
+ax_fgi.axhline(y=20, color='gray', linestyle='--', linewidth=1, label='Fear/Greed Index = 20')
+ax_fgi.axhline(y=80, color='gray', linestyle='--', linewidth=1, label='Fear/Greed Index = 80')
+ax_fgi.set_ylim(0, 100)
+ax_fgi.set_ylabel('Fear & Greed Index')
+ax_fgi.set_title('Fear & Greed Index')
+ax_fgi.legend(loc='upper left', fontsize=10)
+
+# 共用 X 軸的格式設置
+ax_fgi.xaxis.set_major_locator(mdates.MonthLocator(interval=6))  # 每半年顯示一次
+ax_fgi.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m'))
+
+# 隱藏子圖 1 的 X 軸標籤
+plt.setp(ax1.get_xticklabels(), visible=False)
+
+# 美化佈局
+fig.tight_layout()
+plt.show()
+
+#-----------------熊市
+
+# 篩選數據範圍
+brar_market_1 = merged_df.loc['2021-12':'2023-1']
+# 提取篩選後的數據
+timestamps = brar_market_1.index
+BTC_close = brar_market_1['BTC_close']
+Fear_Greed_Index = brar_market_1['Fear_Greed_Index']
+
+# 繪製圖表
+fig = plt.figure(figsize=(18, 9))
+gs = fig.add_gridspec(3, 1)  # 將整個圖形分為 3 等分
+ax1 = fig.add_subplot(gs[:2, 0])  # 前 2 等分作為子圖 1
+ax_fgi = fig.add_subplot(gs[2, 0], sharex=ax1)  # 最後 1 等分作為子圖 2，且共用 X 軸
+
+#子圖 1: 幣種的收盤價
+ax1.plot(timestamps, BTC_close, color='red', label='BTC', linewidth=2)
+ax1.set_ylabel('Close Prices (USD)')
+ax1.set_title('Cryptocurrency Close Prices')
+ax1.legend(loc='upper left', fontsize=10)
+
+# 子圖 2: 恐懼與貪婪指數
+ax_fgi.bar(timestamps, Fear_Greed_Index, color='skyblue', alpha=0.5, label='Fear & Greed Index', width=1)
+ax_fgi.axhline(y=20, color='gray', linestyle='--', linewidth=1, label='Fear/Greed Index = 20')
+ax_fgi.axhline(y=80, color='gray', linestyle='--', linewidth=1, label='Fear/Greed Index = 80')
+ax_fgi.set_ylim(0, 100)
+ax_fgi.set_ylabel('Fear & Greed Index')
+ax_fgi.set_title('Fear & Greed Index')
+ax_fgi.legend(loc='upper left', fontsize=10)
+
+# 共用 X 軸的格式設置
+ax_fgi.xaxis.set_major_locator(mdates.MonthLocator(interval=6))  # 每半年顯示一次
+ax_fgi.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m'))
+
+# 隱藏子圖 1 的 X 軸標籤
+plt.setp(ax1.get_xticklabels(), visible=False)
+
+# 美化佈局
+fig.tight_layout()
+plt.show()
+
+
+#------------------------------
+# 篩選數據範圍
+bull_market_2 = merged_df.loc['2023-1':'2024-11']
+# 提取篩選後的數據
+timestamps = bull_market_2.index
+BTC_close = bull_market_2['BTC_close']
+Fear_Greed_Index = bull_market_2['Fear_Greed_Index']
+
+# 繪製圖表
+fig = plt.figure(figsize=(18, 9))
+gs = fig.add_gridspec(3, 1)  # 將整個圖形分為 3 等分
+ax1 = fig.add_subplot(gs[:2, 0])  # 前 2 等分作為子圖 1
+ax_fgi = fig.add_subplot(gs[2, 0], sharex=ax1)  # 最後 1 等分作為子圖 2，且共用 X 軸
+
+#子圖 1: 幣種的收盤價
+ax1.plot(timestamps, BTC_close, color='red', label='BTC', linewidth=2)
+ax1.set_ylabel('Close Prices (USD)')
+ax1.set_title('Cryptocurrency Close Prices')
+ax1.legend(loc='upper left', fontsize=10)
+
+# 子圖 2: 恐懼與貪婪指數
+ax_fgi.bar(timestamps, Fear_Greed_Index, color='skyblue', alpha=0.5, label='Fear & Greed Index', width=1)
+ax_fgi.axhline(y=20, color='gray', linestyle='--', linewidth=1, label='Fear/Greed Index = 20')
+ax_fgi.axhline(y=80, color='gray', linestyle='--', linewidth=1, label='Fear/Greed Index = 80')
+ax_fgi.set_ylim(0, 100)
+ax_fgi.set_ylabel('Fear & Greed Index')
+ax_fgi.set_title('Fear & Greed Index')
+ax_fgi.legend(loc='upper left', fontsize=10)
+
+# 共用 X 軸的格式設置
+ax_fgi.xaxis.set_major_locator(mdates.MonthLocator(interval=6))  # 每半年顯示一次
+ax_fgi.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m'))
+
+# 隱藏子圖 1 的 X 軸標籤
+plt.setp(ax1.get_xticklabels(), visible=False)
+
+# 美化佈局
+fig.tight_layout()
+plt.show()
